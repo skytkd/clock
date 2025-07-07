@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>Sky Class Clock</title>
+	<style>
+		body {
+			font-family: Arial, sans-serif;
+			font-weight: bold;
+			text-align: center;
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			height: 100vh;
+			margin: 0;
+		}
+
+		#current-event, #time, #next-event, #countdown, #date {
+			margin: -1.8vh 0;
+		}
+
+		#next-event, #date {
+			padding-top: 5.5vh;
+		}
+
+		#time {
+			font-size: 32vh;
+		}
+
+		#countdown {
+			font-size: 32vh;
+		}
+
+		#current-event, #next-event {
+			font-size: 5.5vh;
+		}
+
+		#date {
+			font-size: 5.5vh;
+		}
+	</style>
+</head>
+
+<body>
+	<div id="current-event"></div>
+	<div id="time"></div>
+	<div id="next-event"></div>
+	<div id="countdown"></div>
+	<div id="date"></div>
+
+	<script>
+		// the schedule requires all times to be in 24 hour time (midnight is 00:00) and all times to be 0 padded (9am is 09:00)
+		const schedule = {
+			"Tuesday": [
+				{ "start": "16:00", "end": "16:45", "class": "(Ages 4-6) All Belts: Little Hawks" },
+				{ "start": "16:50", "end": "17:35", "class": "White - Green Advanced (All Ages): Beginner" },
+				{ "start": "17:40", "end": "18:25", "class": "All Belts, All Ages: Family" },
+				{ "start": "18:30", "end": "19:15", "class": "Blue - Black (All Ages): Intermediate/Advanced" },
+				{ "start": "19:20", "end": "20:05", "class": "13+ Teen/Adult All Belts & Black Belts (12yr & up)" }
+			],
+			"Wednesday": [
+				{ "start": "16:00", "end": "16:45", "class": "Blue - Purple Advanced (All Ages): Intermediate" },
+				{ "start": "16:50", "end": "17:35", "class": "Red - Red Advanced (All Ages): Advanced" },
+				{ "start": "17:40", "end": "18:25", "class": "All Belts, All Ages: Family" },
+				{ "start": "18:30", "end": "19:15", "class": "Danbo/Black Belts (All Ages): Advanced" },
+				{ "start": "19:20", "end": "20:05", "class": "13+ Teen/Adult All Belts & Black Belts (12yr & up)" }
+			],
+			"Thursday": [
+				{ "start": "16:00", "end": "16:45", "class": "White - Green Advanced (All Ages): Beginner" },
+				{ "start": "16:50", "end": "17:35", "class": "Blue - Black (All Ages): Intermediate/Advanced" },
+				{ "start": "17:40", "end": "18:25", "class": "(All Ages): Elite Sky Club" },
+				{ "start": "18:30", "end": "19:15", "class": "All Belts, All Ages: Family" }
+			],
+			"Friday": [
+				{ "start": "16:00", "end": "16:45", "class": "All Belts, All Ages: Family" },
+				{ "start": "16:50", "end": "17:35", "class": "Red Advanced and higher: Advanced" },
+				{ "start": "17:40", "end": "19:10", "class": "SKY Competition Team Sparring + Poomsae" }
+			],
+			"Saturday": [
+				{ "start": "09:00", "end": "09:45", "class": "(Ages 4-6) All Belts: Little Hawks" },
+				{ "start": "09:50", "end": "10:35", "class": "White - Green Advanced (All Ages): Beginner" },
+				{ "start": "10:40", "end": "11:25", "class": "Blue - Purple (All Ages): Intermediate" },
+				{ "start": "11:30", "end": "12:15", "class": "Purple Advanced and higher (All Ages): Advanced" },
+				{ "start": "12:20", "end": "13:05", "class": "All Belts, All Ages: Family" }
+			]
+		};
+
+		const weekdayText = [
+			"Sunday",
+			"Monday",
+			"Tuesday",
+			"Wednesday",
+			"Thursday",
+			"Friday",
+			"Saturday",
+		];
+
+		function updateTime() {
+			//const now = new Date();
+			const now = new Date("2-18-2025 17:35:00.001");
+
+			// rerun this function at the start of the next second
+			setTimeout(updateTime, 1000 - now.getMilliseconds());
+
+			// create the time string
+			const hour = String(padNumber(now.getHours()));
+			const minute = String(padNumber(now.getMinutes()));
+			const second = String(padNumber(now.getSeconds()));
+			const timeString = `${hour}:${minute}:${second}`;
+
+			// update the time string
+			document.getElementById("time").textContent = timeString;
+
+			// create the date string
+			const weekday = now.getDay();
+			const date = now.getDate();
+			const month = now.getMonth() + 1;
+			const year = now.getFullYear();
+
+			const weekdayName = weekdayText[weekday];
+
+			// update the date string
+			document.getElementById("date").textContent = weekdayName + ", " + month + "-" + date + "-" + year;
+
+			// check if there are classes today
+			const classesToday = schedule[weekdayName];
+			let currentEvent = "";
+			let nextEvent = "";
+			let nextThresholdTime = "";
+			let daysUntilNextThresholdTime = 0;
+
+			if (classesToday && classesToday.length > 0)
+			{
+				// there are classes today
+				if (timeString < classesToday[0].start + ":00") // check if now is before the first class starts
+				{
+					currentEvent = "Break";
+					nextEvent = classesToday[0].class;
+					nextThresholdTime = classesToday[0].start + ":00";
+					daysUntilNextThresholdTime = 0;
+				}
+				else if (timeString >= classesToday[classesToday.length - 1].end + ":00") // check if now is after the last class ends
+				{
+					currentEvent = "Break";
+					const nextDayWithClasses = findNextDayWithClasses(weekday);
+					const nextDayWithClassesName = weekdayText[nextDayWithClasses];
+					const classesOnNextDayWithClasses = schedule[nextDayWithClassesName];
+					nextEvent = classesOnNextDayWithClasses[0].class;
+					nextThresholdTime = classesOnNextDayWithClasses[0].start + ":00";
+					daysUntilNextThresholdTime = (((13 + nextDayWithClasses - weekday) % 7) + 1);
+				}
+				else // now is between the start of the first class and the end of the last class
+				{
+					// loop through the classes to determine in which class or break now is
+					for (let i = 0; i < classesToday.length; i++)
+					{
+						const classStart = classesToday[i].start + ":00";
+						const classEnd = classesToday[i].end + ":00";
+
+						if (timeString >= classStart && timeString < classEnd) // check if now is in class i
+						{
+							currentEvent = classesToday[i].class;
+							if (classesToday[i + 1] && classesToday[i].end === classesToday[i + 1].start)
+							{
+								nextEvent = classesToday[i + 1].class;
+							}
+							else
+							{
+								nextEvent = "Break";
+							}
+							nextThresholdTime = classEnd;
+							daysUntilNextThresholdTime = 0;
+							break;
+						}
+						else if (timeString < classesToday[i + 1].start + ":00") // check if now is in the break after class i
+						{
+							currentEvent = "Break";
+							nextEvent = classesToday[i + 1].class;
+							nextThresholdTime = classesToday[i + 1].start + ":00";
+							daysUntilNextThresholdTime = 0;
+							break;
+						}
+					}
+				}
+			}
+			else
+			{
+				// there are no classes today
+				currentEvent = "Break";
+				const nextDayWithClasses = findNextDayWithClasses(weekday);
+				const nextDayWithClassesName = weekdayText[nextDayWithClasses];
+				const classesOnNextDayWithClasses = schedule[nextDayWithClassesName];
+				nextEvent = classesOnNextDayWithClasses[0].class;
+				nextThresholdTime = classesOnNextDayWithClasses[0].start + ":00";
+				daysUntilNextThresholdTime = (((13 + nextDayWithClasses - weekday) % 7) + 1);
+			}
+
+			// calculate the time from now until nextThresholdTime
+			const nextThresholdTimeAsDate = new Date(year, month - 1, date, nextThresholdTime.split(':')[0], nextThresholdTime.split(':')[1], nextThresholdTime.split(':')[2]);
+			const remainingTime = nextThresholdTimeAsDate - (now - (now % 1000)) + (daysUntilNextThresholdTime * (1000 * 60 * 60 * 24));
+			const days = Math.floor(remainingTime / (1000 * 60 * 60 * 24));
+			const hours = Math.floor((remainingTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+			const minutes = Math.floor((remainingTime % (1000 * 60 * 60)) / (1000 * 60));
+			const seconds = Math.floor((remainingTime % (1000 * 60)) / 1000);
+
+			// update the countdown text
+			if (days > 0) {
+				document.getElementById("countdown").textContent = `${days}d ${padNumber(hours)}:${padNumber(minutes)}:${padNumber(seconds)}`;
+			}
+			else {
+				document.getElementById("countdown").textContent = `${padNumber(hours)}:${padNumber(minutes)}:${padNumber(seconds)}`;
+			}
+
+			// update the current and next event text
+			document.getElementById("current-event").textContent = `Now: "${currentEvent}"`;
+			document.getElementById("next-event").textContent = `"${nextEvent}" in:`;
+		}
+
+		function padNumber(number) {
+			return number < 10 ? "0" + number : number;
+		}
+
+		function findNextDayWithClasses(weekday) {
+			for (let i = 1; i <= 7; i++)
+			{
+				const nextDayWithClasses = weekdayText[(weekday + i) % 7];
+				const classesOnNextDayWithClasses = schedule[nextDayWithClasses];
+				if (classesOnNextDayWithClasses && classesOnNextDayWithClasses.length > 0)
+				{
+					return ((weekday + i) % 7);
+				}
+			}
+			return -1;
+		}
+
+		updateTime();
+	</script>
+</body>
+
+</html>
